@@ -86,7 +86,8 @@ void handle_command(const char *command, char *username, char *channel, char *ro
         } else if (strstr(response, "Anda telah keluar dari aplikasi") != NULL) {
             close(server_fd);
             exit(0);  // Exit client program after receiving exit confirmation
-        } else if(strstr(response, "[") != NULL){
+        } else if(strncmp(command, "JOIN ", 5) == 0 || strcmp(command, "EXIT") == 0 || strncmp(command, "CHAT ", 5) == 0
+                    || strstr(response, "diedit") != NULL){
             n++;
         } else {
             printf("%s\n", response);
@@ -119,7 +120,6 @@ int main(int argc, char *argv[]) {
         char *password = argv[4];
 
         snprintf(command, sizeof(command), "REGISTER %s %s", username, password);
-        handle_command(command, username, channel, room);
     } else if (strcmp(argv[1], "LOGIN") == 0) {
         if (argc < 5 || strcmp(argv[3], "-p") != 0) {
             printf("Penggunaan: %s LOGIN username -p password\n", argv[0]);
@@ -160,6 +160,7 @@ int main(int argc, char *argv[]) {
                     command[strcspn(command, "\n")] = '\0';
 
                     // Simpan nama channel atau room sebelum mengirim perintah
+                    // Simpan nama user baru ketika diedit
                     if (strncmp(command, "JOIN ", 5) == 0) {
                         if (strlen(channel) == 0) {
                             snprintf(channel, sizeof(channel), "%s", command + 5);
@@ -172,6 +173,8 @@ int main(int argc, char *argv[]) {
                         } else if (strlen(channel) > 0) {
                             channel[0] = '\0';
                         }
+                    } else if(strncmp(command, "EDIT PROFILE SELF -u ", 21) == 0){
+                        snprintf(username, sizeof(username), "%s", command + 21);
                     }
 
                     handle_command(command, username, channel, room);
