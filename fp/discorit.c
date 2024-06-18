@@ -76,7 +76,7 @@ void handle_command(const char *command, char *username, char *channel, char *ro
                     }
                 }
             }
-        } else if (strstr(response, "tidak ada") != NULL || strstr(response, "salah") != NULL || strstr(response, "Anda telah diban") != NULL) {
+        } else if (strstr(response, "tidak ada") != NULL || strstr(response, "Key salah") != NULL || strstr(response, "Anda telah diban") != NULL) {
             if (strlen(room) > 0) {
                 room[0] = '\0';
             } else if (strlen(channel) > 0) {
