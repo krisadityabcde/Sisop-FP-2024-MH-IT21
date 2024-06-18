@@ -1037,10 +1037,12 @@ void join_channel(const char *username, const char *channel, client_info *client
         char *token = strtok(line, ",");
         strcpy(user_id, token);
         token = strtok(NULL, ",");
-        if (token && strcmp(token, username) == 0) {
+        char *name = token;
+        if (token && strstr(name, username) != NULL){
             token = strtok(NULL, ",");
             token = strtok(NULL, ",");
-            if (strstr(token, "ROOT") != NULL){
+            char *role = token;
+            if (strstr(role, "ROOT") != NULL){
                 is_root = true;
             }
             break;
@@ -1092,6 +1094,7 @@ void join_channel(const char *username, const char *channel, client_info *client
         if (write(client->socket, response, strlen(response)) < 0) {
             perror("Gagal mengirim respons ke client");
         }
+        return;
     }
 
     // Check if user is ADMIN/USER/BANNED in auth.csv
