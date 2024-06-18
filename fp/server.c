@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <crypt.h>
+#include <bcrypt.h>
 #include <stdbool.h>
 #include <errno.h>
 #include <dirent.h>
@@ -17,6 +17,7 @@
 #define PORT 8080
 #define MAX_CLIENTS 10
 #define BUFFER_SIZE 10240
+#define SALT_SIZE 64
 #define USERS_FILE "/home/rafaelega24/SISOP/FP/DiscorIT/users.csv"
 #define CHANNELS_FILE "/home/rafaelega24/SISOP/FP/DiscorIT/channels.csv"
 
@@ -60,10 +61,13 @@ void delete_room(const char *channel, const char *room, client_info *client);
 void delete_all_rooms(const char *channel, client_info *client);
 void ban_user(const char *channel, const char *user_to_ban, client_info *client);
 void unban_user(const char *channel, const char *user_to_unban, client_info *client);
+void remove_user(const char *channel, const char *username, client_info *client);
+void log_activity(const char *channel, const char *message);
 
 //khusus root
 void list_users_root(client_info *client);
 void edit_user(const char *target_user, const char *new_value, bool is_password, client_info *client);
+void remove_user_root(const char *target_user, client_info *client);
 
 void handle_exit(client_info *client);
 
@@ -489,6 +493,36 @@ void *handle_client(void *arg) {
                 continue;
             }
             unban_user(cli->logged_in_channel, user_to_unban, cli);
+        } else if (strcmp(token, "REMOVE") == 0) {
+            token = strtok(NULL, " ");
+            if (token == NULL) {
+                char response[] = "Format perintah REMOVE tidak valid";
+                if (write(cli->socket, response, strlen(response)) < 0) {
+                    perror("Gagal mengirim respons ke client");
+                }
+                continue;
+            }
+            if (strcmp(token, "USER") == 0) {
+                if(strlen(cli->logged_in_channel) == 0){
+                    char response[] = "Anda belum bergabung dalam channel";
+                    if (write(cli->socket, response, strlen(response)) < 0) {
+                        perror("Gagal mengirim respons ke client");
+                    }
+                    continue;
+                }
+                char *target_user = strtok(NULL, " ");
+                if (target_user == NULL) {
+                    char response[] = "Penggunaan perintah: REMOVE USER <username>";
+                    if (write(cli->socket, response, strlen(response)) < 0) {
+                        perror("Gagal mengirim respons ke client");
+                    }
+                    continue;
+                }
+                remove_user(cli->logged_in_channel, target_user, cli);
+            } else {
+                char *target_user = token;
+                remove_user_root(target_user, cli);
+            }
         } else if (strcmp(token, "EXIT") == 0) {
             handle_exit(cli);
         } else {
@@ -567,11 +601,11 @@ void register_user(const char *username, const char *password, client_info *clie
 
     fseek(file, 0, SEEK_END);
 
-    // Generate salt for bcrypt
-    char salt[30];
-    snprintf(salt, sizeof(salt), "$2y$12$%.22s", "inistringsaltuserpassword");
+    char salt[SALT_SIZE];
+    snprintf(salt, sizeof(salt), "$2y$12$%.22s", "inistringsaltuntukbcrypt");
+    char hash[BCRYPT_HASHSIZE];
+    bcrypt_hashpw(password, salt, hash);
 
-    char *hash = crypt(password, salt);
     if (hash == NULL) {
         char response[] = "Gagal membuat hash password";
         if (write(client->socket, response, strlen(response)) < 0) {
@@ -594,7 +628,7 @@ void register_user(const char *username, const char *password, client_info *clie
 void login_user(const char *username, const char *password, client_info *client) {
     FILE *file = fopen(USERS_FILE, "r");
     if (!file) {
-        char response[] = "Tidak dapat membuka file users.csv";
+        char response[] = "Tidak dapat membuka file users.csv atau user belum terdaftar";
         if (write(client->socket, response, strlen(response)) < 0) {
             perror("Gagal mengirim respons ke client");
         }
@@ -612,8 +646,7 @@ void login_user(const char *username, const char *password, client_info *client)
             token = strtok(NULL, ","); // Hash password
             char *stored_hash = token;
 
-            char *hash = crypt(password, stored_hash);
-            if (strcmp(hash, stored_hash) == 0) {
+            if (bcrypt_checkpw(password, stored_hash) == 0){
                 snprintf(client->logged_in_user, sizeof(client->logged_in_user), "%s", username);
                 token = strtok(NULL, ","); // Role
                 snprintf(client->logged_in_role, sizeof(client->logged_in_role), "%s", token);
@@ -679,10 +712,10 @@ void create_channel(const char *username, const char *channel, const char *key, 
 
     fseek(channels_file, 0, SEEK_END);
 
-    char salt[30];
-    snprintf(salt, sizeof(salt), "$2y$12$%.22s", "inistringsaltchannelkey");
-
-    char *hash = crypt(key, salt);
+    char salt[SALT_SIZE];
+    snprintf(salt, sizeof(salt), "$2y$12$%.22s", "inistringsaltuntukbcrypt");
+    char hash[BCRYPT_HASHSIZE];
+    bcrypt_hashpw(key, salt, hash);
 
     fprintf(channels_file, "%d,%s,%s\n", channel_count + 1, channel, hash);
     fclose(channels_file);
@@ -740,11 +773,27 @@ void create_channel(const char *username, const char *channel, const char *key, 
         }
     }
 
+    char log_path[256];
+    snprintf(log_path, sizeof(log_path), "/home/rafaelega24/SISOP/FP/DiscorIT/%s/admin/user.log", channel);
+    FILE *log_file = fopen(log_path, "w+");
+    if (log_file) {
+        fclose(log_file);
+    } else {
+        char response[] = "Gagal membuat file user.log";
+        if (write(client->socket, response, strlen(response)) < 0) {
+            perror("Gagal mengirim respons ke client");
+        }
+    }
+
     char response[100];
     snprintf(response, sizeof(response), "Channel %s dibuat", channel);
     if (write(client->socket, response, strlen(response)) < 0) {
         perror("Gagal mengirim respons ke client");
     }
+
+    char log_message[100];
+    snprintf(log_message, sizeof(log_message), "ADMIN membuat channel %s", channel);
+    log_activity(channel, log_message);
 }
 
 void create_room(const char *username, const char *channel, const char *room, client_info *client) {
@@ -761,7 +810,8 @@ void create_room(const char *username, const char *channel, const char *room, cl
     }
 
     char line[256];
-    bool is_allowed = false;
+    bool is_admin = false;
+    bool is_root = false;
 
     while (fgets(line, sizeof(line), auth_file)) {
         char *token = strtok(line, ",");
@@ -770,16 +820,17 @@ void create_room(const char *username, const char *channel, const char *room, cl
         if (token == NULL) continue;
         if (strcmp(token, username) == 0) {
             token = strtok(NULL, ",");
-            if (strstr(token, "ADMIN") != NULL || strstr(token, "ROOT") != NULL){
-                is_allowed = true;
-                break;
+            if (strstr(token, "ADMIN") != NULL) {
+                is_admin = true;
+            } else if (strstr(token, "ROOT") != NULL) {
+                is_root = true;
             }
         }
     }
 
     fclose(auth_file);
 
-    if (!is_allowed) {
+    if (!is_admin && !is_root) {
         char response[] = "Anda tidak memiliki izin untuk membuat room di channel ini";
         if (write(client->socket, response, strlen(response)) < 0) {
             perror("Gagal mengirim respons ke client");
@@ -819,6 +870,14 @@ void create_room(const char *username, const char *channel, const char *room, cl
     if (write(client->socket, response, strlen(response)) < 0) {
         perror("Gagal mengirim respons ke client");
     }
+
+    char log_message[100];
+    if(is_root){
+        snprintf(log_message, sizeof(log_message), "ROOT membuat room %s", room);
+    }else{
+        snprintf(log_message, sizeof(log_message), "ADMIN membuat room %s", room);
+    }
+    log_activity(channel, log_message);
 }
 
 void list_channels(client_info *client) {
@@ -1033,7 +1092,6 @@ void join_channel(const char *username, const char *channel, client_info *client
         if (write(client->socket, response, strlen(response)) < 0) {
             perror("Gagal mengirim respons ke client");
         }
-        return;
     }
 
     // Check if user is ADMIN/USER/BANNED in auth.csv
@@ -1126,27 +1184,10 @@ void verify_key(const char *username, const char *channel, const char *key, clie
         token = strtok(NULL, ",");
         if (token && strcmp(token, channel) == 0) {
             token = strtok(NULL, ","); // Get the stored hash
-            if (token) {
-                // Trim any trailing whitespace or newline from the stored hash
-                char stored_hash[256];
-                strncpy(stored_hash, token, sizeof(stored_hash) - 1);
-                stored_hash[sizeof(stored_hash) - 1] = '\0';
-                stored_hash[strcspn(stored_hash, "\n")] = '\0';
-
-                // Trim newline from key
-                char key_trimmed[BUFFER_SIZE];
-                strncpy(key_trimmed, key, BUFFER_SIZE - 1);
-                key_trimmed[BUFFER_SIZE - 1] = '\0';
-                key_trimmed[strcspn(key_trimmed, "\n")] = '\0';
-
-                // Re-generate hash for key using the same salt
-                char salt[30];
-                snprintf(salt, sizeof(salt), "$2y$12$%.22s", "inistringsaltchannelkey");
-                char *hash = crypt(key_trimmed, salt);
-
-                if (hash && strcmp(hash, stored_hash) == 0) {
-                    key_valid = true;
-                }
+            char *stored_hash = token;
+            stored_hash[strcspn(stored_hash, "\n")] = 0;
+            if(token && bcrypt_checkpw(key, stored_hash) == 0){
+                key_valid = true;
             }
             break;
         }
@@ -1212,6 +1253,8 @@ void verify_key(const char *username, const char *channel, const char *key, clie
             perror("Gagal mengirim respons ke client");
         }
     }
+
+    
 }
 
 void join_room(const char *channel, const char *room, client_info *client) {
@@ -1402,7 +1445,7 @@ void edit_channel(const char *old_channel, const char *new_channel, client_info 
     }
 
     char rootline[256];
-    bool is_admin = false;
+    bool is_root = false;
 
     while (fgets(rootline, sizeof(rootline), users_file)) {
         char *token = strtok(rootline, ",");
@@ -1411,7 +1454,7 @@ void edit_channel(const char *old_channel, const char *new_channel, client_info 
             token = strtok(NULL, ",");
             token = strtok(NULL, ",");
             if (strstr(token, "ROOT") != NULL){
-                is_admin = true;
+                is_root = true;
             }
             break;
         }
@@ -1420,7 +1463,7 @@ void edit_channel(const char *old_channel, const char *new_channel, client_info 
     fclose(users_file);
 
     char line[256];
-
+    bool is_admin = false;
     while (fgets(line, sizeof(line), auth_file)) {
         char *token = strtok(line, ",");
         if (token == NULL) continue;
@@ -1437,7 +1480,7 @@ void edit_channel(const char *old_channel, const char *new_channel, client_info 
 
     fclose(auth_file);
 
-    if (!is_admin) {
+    if (!is_admin && !is_root) {
         char response[] = "Anda tidak memiliki izin untuk mengedit channel";
         if (write(client->socket, response, strlen(response)) < 0) {
             perror("Gagal mengirim respons ke client");
@@ -1473,16 +1516,16 @@ void edit_channel(const char *old_channel, const char *new_channel, client_info 
     while (fgets(line_channel, sizeof(line_channel), channels_file)) {
         char *id = strtok(line_channel, ",");
         char *channel_name = strtok(NULL, ",");
-        char *key = strtok(NULL, "\n");
+        char *key = strtok(NULL, ",");
         if (channel_name && strcmp(channel_name, new_channel) == 0) {
             channel_exists = true;
             break;
         }
         if (channel_name && strcmp(channel_name, old_channel) == 0) {
             found = true;
-            fprintf(temp_file, "%s,%s,%s\n", id, new_channel, key);
+            fprintf(temp_file, "%s,%s,%s", id, new_channel, key);
         } else {
-            fprintf(temp_file, "%s", line_channel);
+            fprintf(temp_file, "%s,%s,%s", id, channel_name, key);
         }
     }
 
@@ -1507,6 +1550,14 @@ void edit_channel(const char *old_channel, const char *new_channel, client_info 
         char new_path[256];
         snprintf(new_path, sizeof(new_path), "/home/rafaelega24/SISOP/FP/DiscorIT/%s", new_channel);
         rename(old_path, new_path);
+
+        char log_message[100];
+        if(is_root){
+            snprintf(log_message, sizeof(log_message), "ROOT mengubah channel %s menjadi %s", old_channel, new_channel);
+        } else {
+            snprintf(log_message, sizeof(log_message), "ADMIN mengubah channel %s menjadi %s", old_channel, new_channel);
+        }
+        log_activity(new_channel, log_message);
 
         char response[100];
         snprintf(response, sizeof(response), "%s berhasil diubah menjadi %s", old_channel, new_channel);
@@ -1535,6 +1586,7 @@ void edit_room(const char *channel, const char *old_room, const char *new_room, 
 
     char rootline[256];
     bool is_admin = false;
+    bool is_root = false;
 
     while (fgets(rootline, sizeof(rootline), users_file)) {
         char *token = strtok(rootline, ",");
@@ -1543,7 +1595,7 @@ void edit_room(const char *channel, const char *old_room, const char *new_room, 
             token = strtok(NULL, ",");
             token = strtok(NULL, ",");
             if (strstr(token, "ROOT") != NULL){
-                is_admin = true;
+                is_root = true;
             }
             break;
         }
@@ -1580,7 +1632,7 @@ void edit_room(const char *channel, const char *old_room, const char *new_room, 
 
     fclose(auth_file);
 
-    if (!is_admin) {
+    if (!is_admin && !is_root) {
         char response[] = "Anda tidak memiliki izin untuk mengedit room";
         if (write(client->socket, response, strlen(response)) < 0) {
             perror("Gagal mengirim respons ke client");
@@ -1616,6 +1668,14 @@ void edit_room(const char *channel, const char *old_room, const char *new_room, 
     snprintf(new_path, sizeof(new_path), "/home/rafaelega24/SISOP/FP/DiscorIT/%s/%s", channel, new_room);
 
     if (rename(old_path, new_path) == 0) {
+        char log_message[100];
+        if(is_root){
+            snprintf(log_message, sizeof(log_message), "ROOT mengubah room %s menjadi %s", old_room, new_room);
+        } else {
+            snprintf(log_message, sizeof(log_message), "ADMIN mengubah room %s menjadi %s", old_room, new_room);
+        }
+        log_activity(channel, log_message);
+
         char response[100];
         snprintf(response, sizeof(response), "%s berhasil diubah menjadi %s", old_room, new_room);
         if (write(client->socket, response, strlen(response)) < 0) {
@@ -1668,10 +1728,11 @@ void edit_profile_self(const char *username, const char *new_value, bool is_pass
         if (user_name && strcmp(user_name, username) == 0) {
             found = true;
             if (is_password) {
-                // Generate new hash for the new password
-                char salt[30];
-                snprintf(salt, sizeof(salt), "$2y$12$%.22s", "inistringsaltuserpassword");
-                char *new_hash = crypt(new_value, salt);
+                char salt[SALT_SIZE];
+                snprintf(salt, sizeof(salt), "$2y$12$%.22s", "inistringsaltuntukbcrypt");
+                char new_hash[BCRYPT_HASHSIZE];
+                bcrypt_hashpw(new_value, salt,new_hash);
+                
                 fprintf(temp_file, "%s,%s,%s,%s", user_id, user_name, new_hash, role);
             } else {
                 fprintf(temp_file, "%s,%s,%s,%s", user_id, new_value, hash, role);
@@ -1758,10 +1819,11 @@ void edit_user(const char *target_user, const char *new_value, bool is_password,
         if (user_name && strcmp(user_name, target_user) == 0) {
             found = true;
             if (is_password) {
-                // Generate new hash for the new password
-                char salt[30];
-                snprintf(salt, sizeof(salt), "$2y$12$%.22s", "inistringsaltuserpassword");
-                char *new_hash = crypt(new_value, salt);
+                char salt[SALT_SIZE];
+                snprintf(salt, sizeof(salt), "$2y$12$%.22s", "inistringsaltuntukbcrypt");
+                char new_hash[BCRYPT_HASHSIZE];
+                bcrypt_hashpw(new_value, salt,new_hash);
+
                 fprintf(temp_file, "%s,%s,%s,%s", user_id, user_name, new_hash, role);
             } else {
                 fprintf(temp_file, "%s,%s,%s,%s", user_id, new_value, hash, role);
@@ -2029,10 +2091,15 @@ void delete_channel(const char *channel, client_info *client) {
     if (write(client->socket, response, strlen(response)) < 0) {
         perror("Gagal mengirim respons ke client");
     }
+
+    char log_message[100];
+    snprintf(log_message, sizeof(log_message), "%s menghapus channel %s", client->logged_in_role, channel);
+    log_activity(channel, log_message);
 }
 
 void delete_room(const char *channel, const char *room, client_info *client) {
         bool is_admin = false;
+        bool is_root = false;
         char auth_path[256];
         char line[256];
         snprintf(auth_path, sizeof(auth_path), "/home/rafaelega24/SISOP/FP/DiscorIT/%s/admin/auth.csv", channel);
@@ -2052,8 +2119,10 @@ void delete_room(const char *channel, const char *room, client_info *client) {
             if (token == NULL) continue;
             if (strcmp(token, client->logged_in_user) == 0) {
                 token = strtok(NULL, ",");
-                if (strstr(token, "ADMIN") != NULL || strstr(token, "ROOT") != NULL){
+                if (strstr(token, "ADMIN") != NULL) {
                     is_admin = true;
+                }else if (strstr(token, "ROOT") != NULL){
+                    is_root = true;
                 }
                 break;
             }
@@ -2061,7 +2130,7 @@ void delete_room(const char *channel, const char *room, client_info *client) {
 
         fclose(auth_file);
 
-    if (!is_admin) {
+    if (!is_admin && !is_root) {
         char response[] = "Anda tidak memiliki izin untuk menghapus room";
         if (write(client->socket, response, strlen(response)) < 0) {
             perror("Gagal mengirim respons ke client");
@@ -2088,6 +2157,14 @@ void delete_room(const char *channel, const char *room, client_info *client) {
     if (write(client->socket, response, strlen(response)) < 0) {
         perror("Gagal mengirim respons ke client");
     }
+
+    char log_message[100];
+    if(is_root){
+        snprintf(log_message, sizeof(log_message), "ROOT menghapus room %s", room);
+    } else {
+        snprintf(log_message, sizeof(log_message), "ADMIN menghapus room %s", room);
+    }
+    log_activity(channel, log_message);
 }
 
 void delete_all_rooms(const char *channel, client_info *client) {
@@ -2104,6 +2181,7 @@ void delete_all_rooms(const char *channel, client_info *client) {
 
     char line[256];
     bool is_admin = false;
+    bool is_root = false;
 
     while (fgets(line, sizeof(line), auth_file)) {
         char *token = strtok(line, ",");
@@ -2112,16 +2190,18 @@ void delete_all_rooms(const char *channel, client_info *client) {
         if (token == NULL) continue;
         if (strcmp(token, client->logged_in_user) == 0) {
             token = strtok(NULL, ",");
-            if (strstr(token, "ADMIN") != NULL || strstr(token, "ROOT") != NULL){
+            if (strstr(token, "ADMIN") != NULL) {
                 is_admin = true;
-                break;
+            } else if (strstr(token, "ROOT") != NULL){
+                is_root = true;
             }
+            break;
         }
     }
 
     fclose(auth_file);
 
-    if (!is_admin) {
+    if (!is_admin && !is_root) {
         char response[] = "Anda tidak memiliki izin untuk menghapus semua room";
         if (write(client->socket, response, strlen(response)) < 0) {
             perror("Gagal mengirim respons ke client");
@@ -2158,6 +2238,14 @@ void delete_all_rooms(const char *channel, client_info *client) {
     if (write(client->socket, response, strlen(response)) < 0) {
         perror("Gagal mengirim respons ke client");
     }
+
+    char log_message[100];
+    if(is_root){
+        snprintf(log_message, sizeof(log_message), "ROOT menghapus semua room");
+    } else {
+        snprintf(log_message, sizeof(log_message), "ADMIN menghapus semua room");
+    }
+    log_activity(channel, log_message);
 }
 
 void ban_user(const char *channel, const char *target_user, client_info *client) {
@@ -2173,6 +2261,7 @@ void ban_user(const char *channel, const char *target_user, client_info *client)
     }
 
     bool is_admin = false;
+    bool is_root = false;
     char auth_line[256];
 
     while (fgets(auth_line, sizeof(auth_line), auth_file)) {
@@ -2182,16 +2271,18 @@ void ban_user(const char *channel, const char *target_user, client_info *client)
         if (token == NULL) continue;
         if (strcmp(token, client->logged_in_user) == 0) {
             token = strtok(NULL, ",");
-            if (strstr(token, "ROOT") != NULL || strstr(token, "ADMIN") != NULL) {
+            if (strstr(token, "ROOT") != NULL) {
+                is_root = true;
+            } else if (strstr(token, "ADMIN") != NULL) {
                 is_admin = true;
-                break;
             }
+            break;
         }
     }
 
     fclose(auth_file);
 
-    if (!is_admin) {
+    if (!is_admin && !is_root) {
         char response[] = "Anda tidak memiliki izin untuk melakukan ban user";
         if (write(client->socket, response, strlen(response)) < 0) {
             perror("Gagal mengirim respons ke client");
@@ -2271,6 +2362,14 @@ void ban_user(const char *channel, const char *target_user, client_info *client)
     if (write(client->socket, response, strlen(response)) < 0) {
         perror("Gagal mengirim respons ke client");
     }
+
+    char log_message[100];
+    if(is_root){
+        snprintf(log_message, sizeof(log_message), "ROOT ban %s", target_user);
+    } else {
+        snprintf(log_message, sizeof(log_message), "ADMIN ban %s", target_user);
+    }
+    log_activity(channel, log_message);
 }
 
 void unban_user(const char *channel, const char *target_user, client_info *client) {
@@ -2286,6 +2385,7 @@ void unban_user(const char *channel, const char *target_user, client_info *clien
     }
 
     bool is_admin = false;
+    bool is_root = false;
     char auth_line[256];
 
     while (fgets(auth_line, sizeof(auth_line), auth_file)) {
@@ -2295,16 +2395,18 @@ void unban_user(const char *channel, const char *target_user, client_info *clien
         if (token == NULL) continue;
         if (strcmp(token, client->logged_in_user) == 0) {
             token = strtok(NULL, ",");
-            if (strstr(token, "ROOT") != NULL || strstr(token, "ADMIN") != NULL) {
+            if (strstr(token, "ROOT") != NULL) {
+                is_root = true;
+            } else if (strstr(token, "ADMIN") != NULL) {
                 is_admin = true;
-                break;
             }
+            break;
         }
     }
 
     fclose(auth_file);
 
-    if (!is_admin) {
+    if (!is_admin && !is_root) {
         char response[] = "Anda tidak memiliki izin untuk melakukan ban user";
         if (write(client->socket, response, strlen(response)) < 0) {
             perror("Gagal mengirim respons ke client");
@@ -2378,7 +2480,252 @@ void unban_user(const char *channel, const char *target_user, client_info *clien
     if (write(client->socket, response, strlen(response)) < 0) {
         perror("Gagal mengirim respons ke client");
     }
+
+    char log_message[100];
+    if(is_root){
+        snprintf(log_message, sizeof(log_message), "ROOT unban %s", target_user);
+    } else {
+        snprintf(log_message, sizeof(log_message), "ADMIN unban %s", target_user);
+    }
+    log_activity(channel, log_message);
 }
+
+void remove_user(const char *channel, const char *target_user, client_info *client) {
+    char auth_path[256];
+    snprintf(auth_path, sizeof(auth_path), "/home/rafaelega24/SISOP/FP/DiscorIT/%s/admin/auth.csv", channel);
+    FILE *auth_file = fopen(auth_path, "r");
+    if (!auth_file) {
+        char response[] = "Gagal membuka file auth.csv";
+        if (write(client->socket, response, strlen(response)) < 0) {
+            perror("Gagal mengirim respons ke client");
+        }
+        return;
+    }
+
+    bool is_admin = false;
+    bool is_root = false;
+    char auth_line[256];
+
+    while (fgets(auth_line, sizeof(auth_line), auth_file)) {
+        char *token = strtok(auth_line, ",");
+        if (token == NULL) continue;
+        token = strtok(NULL, ",");
+        if (token == NULL) continue;
+        if (strcmp(token, client->logged_in_user) == 0) {
+            token = strtok(NULL, ",");
+            if (strstr(token, "ROOT") != NULL){
+                is_root = true;
+            } else if (strstr(token, "ADMIN") != NULL) {
+                is_admin = true;
+            }
+            break;
+        }
+    }
+
+    fclose(auth_file);
+
+    if (!is_admin && !is_root) {
+        char response[] = "Anda tidak memiliki izin untuk menghapus user dari channel";
+        if (write(client->socket, response, strlen(response)) < 0) {
+            perror("Gagal mengirim respons ke client");
+        }
+        return;
+    }
+
+    // Open auth.csv to remove the target user
+    auth_file = fopen(auth_path, "r+");
+    if (!auth_file) {
+        char response[] = "Gagal membuka file auth.csv";
+        if (write(client->socket, response, strlen(response)) < 0) {
+            perror("Gagal mengirim respons ke client");
+        }
+        return;
+    }
+
+    char temp_path[256];
+    snprintf(temp_path, sizeof(temp_path), "/home/rafaelega24/SISOP/FP/DiscorIT/%s/admin/auth_temp.csv", channel);
+    FILE *temp_file = fopen(temp_path, "w+");
+    if (!temp_file) {
+        char response[] = "Gagal membuat file sementara";
+        if (write(client->socket, response, strlen(response)) < 0) {
+            perror("Gagal mengirim respons ke client");
+        }
+        fclose(auth_file);
+        return;
+    }
+
+    bool found = false;
+    bool removable = true;
+    char line[256];
+
+    while (fgets(line, sizeof(line), auth_file)) {
+        char *user_id = strtok(line, ",");
+        char *user_name = strtok(NULL, ",");
+        char *role = strtok(NULL, ",");
+
+        if (user_name && strcmp(user_name, target_user) == 0) {
+            found = true;
+            if (strstr(role, "ROOT") != NULL || strstr(role, "ADMIN") != NULL) {
+                removable = false;
+            } else {
+                continue;  // Skip writing this user to temp file
+            }
+        }
+        fprintf(temp_file, "%s,%s,%s", user_id, user_name, role);
+    }
+
+    fclose(auth_file);
+    fclose(temp_file);
+
+    if (!found) {
+        remove(temp_path);
+        char response[] = "User tidak ditemukan di channel ini";
+        if (write(client->socket, response, strlen(response)) < 0) {
+            perror("Gagal mengirim respons ke client");
+        }
+        return;
+    }
+
+    if (!removable) {
+        remove(temp_path);
+        char response[] = "Anda tidak bisa menghapus ROOT atau ADMIN dari channel";
+        if (write(client->socket, response, strlen(response)) < 0) {
+            perror("Gagal mengirim respons ke client");
+        }
+        return;
+    }
+
+    remove(auth_path);
+    rename(temp_path, auth_path);
+
+    char response[100];
+    snprintf(response, sizeof(response), "%s dikick", target_user);
+    if (write(client->socket, response, strlen(response)) < 0) {
+        perror("Gagal mengirim respons ke client");
+    }
+
+    char log_message[100];
+    if(is_root){
+        snprintf(log_message, sizeof(log_message), "ROOT kick %s", target_user);
+    } else {
+        snprintf(log_message, sizeof(log_message), "ADMIN kick %s", target_user);
+    }
+    log_activity(channel, log_message);
+}
+
+void remove_user_root(const char *target_user, client_info *client) {
+    FILE *rootfile = fopen(USERS_FILE, "r");
+    if (!rootfile) {
+        char response[] = "Gagal membuka file users.csv";
+        if (write(client->socket, response, strlen(response)) < 0) {
+            perror("Gagal mengirim respons ke client");
+        }
+        return;
+    }
+
+    bool is_root = false;
+    char line[256];
+
+    while (fgets(line, sizeof(line), rootfile)) {
+        char *token = strtok(line, ",");
+        token = strtok(NULL, ",");
+        if (token && strcmp(token, client->logged_in_user) == 0) {
+            token = strtok(NULL, ",");
+            token = strtok(NULL, ",");
+            if (strstr(token, "ROOT") != NULL) {
+                is_root = true;
+                break;
+            }
+        }
+    }
+
+    if (!is_root) {
+        char response[] = "Anda tidak memiliki izin untuk menghapus user secara permanen";
+        if (write(client->socket, response, strlen(response)) < 0) {
+            perror("Gagal mengirim respons ke client");
+        }
+        fclose(rootfile);
+        return;
+    }
+
+    fclose(rootfile);
+
+    FILE *file = fopen(USERS_FILE, "r");
+    if (!file) {
+        char response[] = "Gagal membuka file users.csv";
+        if (write(client->socket, response, strlen(response)) < 0) {
+            perror("Gagal mengirim respons ke client");
+        }
+        fclose(file);
+        return;
+    }
+
+    char temp_path[256];
+    snprintf(temp_path, sizeof(temp_path), "/home/rafaelega24/SISOP/FP/DiscorIT/users_temp.csv");
+    FILE *temp_file = fopen(temp_path, "w+");
+    if (!temp_file) {
+        char response[] = "Gagal membuat file sementara";
+        if (write(client->socket, response, strlen(response)) < 0) {
+            perror("Gagal mengirim respons ke client");
+        }
+        fclose(temp_file);
+        return;
+    }
+
+    bool found = false;
+
+    while (fgets(line, sizeof(line), file)) {
+        char *user_id = strtok(line, ",");
+        char *user_name = strtok(NULL, ",");
+        char *hash = strtok(NULL, ",");
+        char *role = strtok(NULL, ",");
+
+        if (user_name && strcmp(user_name, target_user) == 0) {
+            found = true;
+            continue;  // Skip writing this user to temp file
+        }
+        fprintf(temp_file, "%s,%s,%s,%s", user_id, user_name, hash, role);
+    }
+
+    fclose(file);
+    fclose(temp_file);
+
+    if (found) {
+        remove(USERS_FILE);
+        rename(temp_path, USERS_FILE);
+        char response[100];
+        snprintf(response, sizeof(response), "%s berhasil dihapus", target_user);
+        if (write(client->socket, response, strlen(response)) < 0) {
+            perror("Gagal mengirim respons ke client");
+        }
+    } else {
+        remove(temp_path);
+        char response[] = "User tidak ditemukan";
+        if (write(client->socket, response, strlen(response)) < 0) {
+            perror("Gagal mengirim respons ke client");
+        }
+    }
+}
+
+void log_activity(const char *channel, const char *message) {
+    char log_path[256];
+    snprintf(log_path, sizeof(log_path), "/home/rafaelega24/SISOP/FP/DiscorIT/%s/admin/user.log", channel);
+
+    FILE *log_file = fopen(log_path, "a+");
+    if (!log_file) {
+        perror("Gagal membuka file user.log");
+        return;
+    }
+
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    char date[30];
+    strftime(date, sizeof(date), "%d/%m/%Y %H:%M:%S", t);
+
+    fprintf(log_file, "[%s] %s\n", date, message);
+    fclose(log_file);
+}
+
 
 void handle_exit(client_info *client) {
     if (strlen(client->logged_in_room) > 0) {
