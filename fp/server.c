@@ -12,6 +12,7 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <dirent.h>
+#include <ctype.h>
 #include <time.h>
 
 #define PORT 8080
@@ -265,15 +266,19 @@ void *handle_client(void *arg) {
                 char *room = token;
                 join_room(cli->logged_in_channel, room, cli);
             }
-        } else if (strcmp(token, "CHAT") == 0) {
-            char *message = strtok(NULL, "\"");
-            if (message == NULL || strlen(cli->logged_in_channel) == 0 || strlen(cli->logged_in_room) == 0) {
-                char response[] = "Format perintah CHAT tidak valid atau anda belum tergabung dalam room";
+        } else if(strcmp(token, "CHAT") == 0) {
+            char *message = buffer + 5;
+
+            // Periksa apakah pengguna sudah tergabung dalam channel dan room
+            if (strlen(cli->logged_in_channel) == 0 || strlen(cli->logged_in_room) == 0) {
+                char response[] = "Anda belum tergabung dalam room";
                 if (write(cli->socket, response, strlen(response)) < 0) {
                     perror("Gagal mengirim respons ke client");
                 }
                 continue;
             }
+
+            // Kirim pesan chat
             send_chat(cli->logged_in_user, cli->logged_in_channel, cli->logged_in_room, message, cli);
         } else if (strcmp(token, "SEE") == 0) {
             token = strtok(NULL, " ");
@@ -903,6 +908,10 @@ void list_channels(client_info *client) {
         snprintf(response + strlen(response), sizeof(response) - strlen(response), "%s ", token);
     }
 
+    if(strlen(response) == 0){
+        snprintf(response, sizeof(response), "Tidak ada channel yang ditemukan");
+    }
+
     if (write(client->socket, response, strlen(response)) < 0) {
         perror("Gagal mengirim respons ke client");
     }
@@ -1283,6 +1292,29 @@ void join_room(const char *channel, const char *room, client_info *client) {
 }
 
 void send_chat(const char *username, const char *channel, const char *room, const char *message, client_info *client) {
+    char *startquote = strchr(message, '\"');
+    char *endquote = strrchr(message, '\"');
+
+    if (startquote == NULL || endquote == NULL || startquote == endquote) {
+        char response[] = "Penggunaan: CHAT \"<pesan>\"";
+        if (write(client->socket, response, strlen(response)) < 0) {
+            perror("Gagal mengirim respons ke client");
+        }
+        return;
+    }
+
+    char message_trimmed[BUFFER_SIZE];
+    memset(message_trimmed, 0, sizeof(message_trimmed));
+    strncpy(message_trimmed, message + 1, endquote - startquote - 1);
+
+    if(strlen(message_trimmed) == 0){
+        char response[] = "Pesan tidak boleh kosong";
+        if (write(client->socket, response, strlen(response)) < 0) {
+            perror("Gagal mengirim respons ke client");
+        }
+        return;
+    }
+
     char path[256];
     snprintf(path, sizeof(path), "/home/rafaelega24/SISOP/FP/DiscorIT/%s/%s/chat.csv", channel, room);
     FILE *chat_file = fopen(path, "a+");
@@ -1312,7 +1344,7 @@ void send_chat(const char *username, const char *channel, const char *room, cons
     char date[30];
     strftime(date, sizeof(date), "%d/%m/%Y %H:%M:%S", t);
 
-    fprintf(chat_file, "%s|%d|%s|%s\n", date, id_chat, username, message);
+    fprintf(chat_file, "%s|%d|%s|%s\n", date, id_chat, username, message_trimmed);
     fclose(chat_file);
 
     char response[100];
