@@ -86,7 +86,7 @@ void handle_command(const char *command, char *username, char *channel, char *ro
         } else if (strstr(response, "Anda telah keluar dari aplikasi") != NULL) {
             close(server_fd);
             exit(0);  // Exit client program after receiving exit confirmation
-        } else if(strncmp(command, "JOIN ", 5) == 0 || strcmp(command, "EXIT") == 0 || strncmp(command, "CHAT ", 5) == 0
+        } else if(strncmp(command, "JOIN ", 5) == 0 || strcmp(command, "EXIT") == 0 || strstr(response, "berhasil dikirim") != NULL
                     || strstr(response, "diedit") != NULL || strstr(response, "selamanya") != NULL){
             n++;
         } else {
