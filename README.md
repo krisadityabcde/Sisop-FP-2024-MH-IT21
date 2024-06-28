@@ -160,6 +160,9 @@ qurbancare berhasil register
 qurbancare sudah terdaftar
 
 ### Screenshot
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/2cc7ad27-9b26-41fb-bdde-de04a31fa09e)
+
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/0a36b5be-79bf-464b-8a6f-03062ecd6f8c)
 
 ### Login
 ```c
@@ -228,6 +231,7 @@ qurbancare berhasil login
 [qurbancare] 
 
 ### Screenshot
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/917ea10f-c711-4b38-bac4-f2198c238477)
 
 ## B. Bagaimana DiscorIT digunakan
 ### List Channel
@@ -278,6 +282,7 @@ channel1 channel2 channel3
 care bancar qurb
 
 ### Screenshot
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/23a9d508-0216-4c40-bd99-0efa31984e42)
 
 ### List Room dan User dalam Channel
 ```c
@@ -367,6 +372,9 @@ urban banru runab
 root admin qurbancare
 
 ### Screenshot
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/8fefde7d-dc3f-4399-bed8-435f9b40a9b7)
+
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/1413265e-4852-4706-866b-e47ef08a4375)
 
 ### Join Channel
 ```c
@@ -641,6 +649,7 @@ Key: care123
 [qurbancare/care] 
 
 ### Screenshot
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/11163de2-bb8a-48e4-8318-a4b57752f265)
 
 ### Join Room
 Konsep dari join room lebih sederhana karena tidak perlu verifikasi keberadaan user (masuk channel = user exist). Yang perlu dilakukan hanyalah melakukan pengecekan keberadaan room.
@@ -678,6 +687,7 @@ void join_room(const char *channel, const char *room, client_info *client) {
 [qurbancare/care/urban] 
 
 ### Screenshot
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/a5ca2173-e56f-4149-a952-3d26751fce48)
 
 ### Fitur Chat
 
@@ -942,6 +952,13 @@ sesudahnya
 [qurbancare/care/urban] DEL CHAT 3      
 
 ### Screenshot
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/0542aed9-78bf-4f6d-b9d7-c28190ec408a)
+
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/472f0c8e-44b2-43ea-94ab-388adaca0482)
+
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/322527cc-1b60-4c25-bfb0-2f6293b963ae)
+
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/0b46f5fb-f236-4d1d-a458-0c5cc448ff92)
 
 ## C. Root
 - Akun yang pertama kali mendaftar otomatis mendapatkan peran "root".
@@ -1203,6 +1220,17 @@ password zika berhasil diubah
 zika berhasil dihapus   
 
 ### Screenshot
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/f89fd2e1-ba50-4641-a907-e91a62e8d8c6)
+
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/89c1ef5b-94e1-418c-b581-abde8c24cdc2)
+
+Before
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/0e8c65c2-eedd-4c5f-aafa-ba1758fe502d)
+
+After
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/edc41e66-457d-4149-ac60-bb32eb1708ac)
+
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/a4e1e4c8-2bde-4f6a-8b04-64b9ce92936a)
 
 ## D. Admin Channel
 - Setiap user yang membuat channel otomatis menjadi admin di channel tersebut. Informasi tentang user disimpan dalam file auth.csv.
@@ -1629,6 +1657,13 @@ care berhasil diubah menjadi cera
 cera berhasil dihapus
 
 ### Screenshot
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/c140e48c-6946-43bb-a440-6641bb676573)
+
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/e57a4993-c265-487c-9058-d6b3f286d907)
+
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/43321aea-ab4f-4c64-9a9d-a93f5ebbf023)
+
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/13101ce0-fe83-4fc7-a307-2c4ddccca1c5)
 
 ### Room
 ```c
@@ -2008,6 +2043,13 @@ nabru berhasil dihapus
 Semua room dihapus      
 
 ### Screenshot
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/248817bb-f374-44e5-8ba9-6fc861a8e6c6)
+
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/4edfb3d9-12f4-4709-871d-8a40d5c624a6)
+
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/a28bf8f5-328a-4d5d-998b-3f79b35f65fb)
+
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/e97aa185-22b7-4061-a1f8-16a6a7e611ad)
 
 ### Ban dan Unban
 Admin dapat melakukan ban pada user yang nakal. Aktivitas ban tercatat pada `users.log`. Ketika di ban, role "user" berubah menjadi "banned". Data tetap tersimpan dan user tidak dapat masuk ke dalam channel.
@@ -2270,6 +2312,11 @@ pen diban
 pen kembali     
 
 ### Screenshot
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/31608170-05d2-46a6-9564-0c414984a1ea)
+
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/ee824e56-1401-4e35-b43e-686d54754fb6)
+
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/05ac14cd-c980-475c-80a1-82a374ec9c3f)
 
 ### Remove User
 Fungsionalitas kali ini mirip dengan remove user yang bisa dilakukan root user hanya saja user hanya diremove aksesnya dari sebuah channel namun masih bisa mengakses program tanpa perlu register ulang.
@@ -2407,6 +2454,7 @@ user1 dikick
 pen dikick  
 
 ### Screenshot
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/c283d6b7-2739-4a23-ae7b-3bdd3ea33ee8)
 
 ### Log Activity
 Seperti yang diminta oleh soal, segala aktivitas admin maupun root dalam melakukan pengelolaan channel, room, dan user dalam sebuah channel akan tercatat di dalam sebuah log yang tersimpan di folder admin bersama dengan `auth.csv`
@@ -2433,6 +2481,7 @@ void log_activity(const char *channel, const char *message) {
 Dapat diperhatikan lagi bahwa function ini sudah dipanggil di setiap function terkait setelah berhasil melakukan suatu aksi.
 
 ### Screenshot
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/9fbaa983-b1cf-43a1-8a6b-7d332c1f5fef)
 
 ## E. User
 User dapat mengubah informasi profil mereka, user yang di ban tidak dapat masuk kedalam channel dan dapat keluar dari room, channel, atau keluar sepenuhnya dari DiscorIT.
@@ -2540,6 +2589,10 @@ Profil diupdate
 Password diupdate   
 
 ### Screenshot
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/d1516dfa-e1a8-4ce7-bd11-5fd760c0e995)
+
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/49d786d6-b059-4863-b0f6-7c267c0eb3b1)
+
 
 ### Banned User
 Perihal ini sudah dijelaskan pada bagian `ban/unban user`
@@ -2548,12 +2601,12 @@ Perihal ini sudah dijelaskan pada bagian `ban/unban user`
 [user] JOIN channel     
 anda telah diban, silahkan menghubungi admin
 
-
 ### Contoh
 [qurbancare] JOIN care  
 anda telah diban, silahkan menghubungi admin
 
 ### Screenshot
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/eb2f7540-dbc7-4ecf-bdbd-d4cc1551cb16)
 
 ### Exit
 Bagian ini hanya menghandle bagaimana user keluar dari state room ke channel atau channel ke program serta keluar total dari program.
@@ -2595,6 +2648,7 @@ void handle_exit(client_info *client) {
 [qurbancare] EXIT   
 
 ### Screenshot
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/ee56a9b0-d54e-45b1-92c7-73f2d409e1d8)
 
 ## F. Error Handling
 Sudah ada beberapa error handling yang diterapkan di berbagai fungsi seperti input kosong, input tidak sesuai format, akses bagi user root/admin/banned, channel/room tidak ada, belum bergabung ke channel/room, dll.
@@ -2688,6 +2742,7 @@ sesudahnya
 [qurbancare] EXIT   
 
 ### Screenshot
+![image](https://github.com/krisadityabcde/Sisop-FP-2024-MH-IT21/assets/144150187/1ed2dfa0-698a-46e8-a6d3-c0189e44500f)
 
 ## Kendala
 Tidak ada kendala, program sudah selesai beberapa hari sebelum deadline, walau mungkin masih luput beberapa error handling ketika asistensi.
